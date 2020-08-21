@@ -1,64 +1,146 @@
 package com.example.logindemo;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.util.Map;
+
 public class MainActivity extends AppCompatActivity {
-    boolean isValid = false;
-    private EditText eName;
+
+    /* Strings to hold user inputs */
+    String userName = "";
     private EditText ePassword;
-    private Button eLogin;
     private TextView eAttemptsInfo;
-    private String Username = "Admin";
-    private String Password = "123456";
+    String userPassword = "";
+    /* Flag used for validation */
+    boolean isValid = false;
+    /* Variables for storing data persistently */
+    SharedPreferences sharedPreferences;
+    SharedPreferences.Editor sharedPreferencesEditor;
+    /* Define the UI elements */
+    private EditText eName;
+    private Button eLogin;
+    private TextView eSignUp;
+    private CheckBox eRememberMe;
+    /* Number of attempts is held in this counter */
     private int counter = 5;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        /* Bind the XML views to Java Code Elements */
         eName = findViewById(R.id.etName);
         ePassword = findViewById(R.id.etPassword);
-        eLogin = findViewById(R.id.Login);
-        eAttemptsInfo = findViewById(R.id.tvAttemptsInfo);
+        eAttemptsInfo = findViewById(R.id.tvAttempts);
+        eLogin = findViewById(R.id.btnLogin);
+        eSignUp = findViewById(R.id.tvRegister);
+        eRememberMe = findViewById(R.id.cbRemember);
+
+        /* Create a sharedpreferences file to hold our values in local phone offline storage */
+        sharedPreferences = getApplicationContext().getSharedPreferences("CredentialDB", Context.MODE_PRIVATE);
+
+        sharedPreferencesEditor = sharedPreferences.edit();
+
+        /* If the retrieved local copy isn't NULL, add logic */
+        if (sharedPreferences != null) {
+            /* Retrieve all records from the local file */
+            Map<String, ?> allEntries = sharedPreferences.getAll();
+
+            /* Loop through each record and add to credentials */
+            for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
+                RegistrationActivity.credentials.addCredentials(entry.getKey(), entry.getValue().toString());
+            }
+
+            if (sharedPreferences.getBoolean("RememberMeCheckBox", false)) {
+
+                String savedUsername = sharedPreferences.getString("Username", "");
+                String savedPassword = sharedPreferences.getString("Password", "");
+
+                eName.setText(savedUsername);
+                ePassword.setText(savedPassword);
+                eRememberMe.setChecked(true);
+            }
+        }
+
+        /* Describe the logic when the login button is clicked */
         eLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String inputName = eName.getText().toString();
-                String inputPassword = ePassword.getText().toString();
-                if (inputName.isEmpty() || inputPassword.isEmpty()) {
-                    Toast.makeText(MainActivity.this, "Please enter all the details correctly!", Toast.LENGTH_SHORT).show();
+
+                /* Obtain user inputs */
+                userName = eName.getText().toString();
+                userPassword = ePassword.getText().toString();
+
+                /* Check if the user inputs are empty */
+                if (userName.isEmpty() || userPassword.isEmpty()) {
+                    /* Display a message toast to user to enter the details */
+                    Toast.makeText(MainActivity.this, "Please enter name and password!", Toast.LENGTH_LONG).show();
 
                 } else {
-                    isValid = validate(inputName, inputPassword);
+
+                    /* Validate the user inputs */
+                    isValid = RegistrationActivity.credentials.checkCredentials(userName, userPassword);
+
+                    /* Validate the user inputs */
+
+                    /* If not valid */
                     if (!isValid) {
+
+                        /* Decrement the counter */
                         counter--;
-                        Toast.makeText(MainActivity.this, "Incorrect Credentials Entered", Toast.LENGTH_SHORT).show();
-                        eAttemptsInfo.setText("No of Attempts remaining:" + counter);
+
+                        /* Show the attempts remaining */
+                        eAttemptsInfo.setText("Attempts Remaining: " + counter);
+
+                        /* Disable the login button if there are no attempts left */
                         if (counter == 0) {
                             eLogin.setEnabled(false);
+                            Toast.makeText(MainActivity.this, "You have used all your attempts try again later!", Toast.LENGTH_LONG).show();
                         }
-                    } else {
-                        Toast.makeText(MainActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
-                        //Add the code to go to new activity
-                        Intent intent = new Intent(MainActivity.this, HomePageActivity.class);
-                        startActivity(intent);
-
+                        /* Display error message */
+                        else {
+                            Toast.makeText(MainActivity.this, "Incorrect credentials, please try again!", Toast.LENGTH_LONG).show();
+                        }
                     }
+                    /* If valid */
+                    else {
+
+                        /* Save the checkbox remember me state */
+                        sharedPreferencesEditor.putBoolean("RememberMeCheckBox", eRememberMe.isChecked());
+
+                        if (eRememberMe.isChecked()) {
+                            sharedPreferencesEditor.putString("Username", eName.getText().toString());
+                            sharedPreferencesEditor.putString("Password", ePassword.getText().toString());
+                        }
+
+                        sharedPreferencesEditor.apply();
+
+                        /* Allow the user in to your app by going into the next activity */
+                        startActivity(new Intent(MainActivity.this, HomePageActivity.class));
+                    }
+
                 }
             }
         });
-    }
 
-    boolean validate(String name, String password) {
-        return name.equals(Username) && password.equals(Password);
-
+        /* Go to Registration Activity when SignUp is clicked */
+        eSignUp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startActivity(new Intent(MainActivity.this, RegistrationActivity.class));
+            }
+        });
     }
 }
